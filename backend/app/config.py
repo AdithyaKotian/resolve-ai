@@ -14,13 +14,32 @@ class Settings(BaseSettings):
 
     app_name: str = "ResolveAI"
     app_version: str = "0.1.0"
-    app_env: Literal["development", "test", "production"] = "development"
+    app_env: Literal[
+        "development",
+        "test",
+        "production",
+    ] = "development"
+
     debug: bool = True
     api_prefix: str = "/api"
+
     database_url: str = (
         f"sqlite:///{(DATA_DIR / 'resolve_ai.db').as_posix()}"
     )
+
     frontend_origin: str = "http://localhost:5173"
+
+    # Language-model configuration
+    llm_provider: Literal[
+        "openai",
+        "deterministic",
+    ] = "deterministic"
+
+    openai_api_key: str | None = None
+    openai_model: str = "gpt-4o-mini"
+
+    # Maximum retries after the initial tool attempt
+    max_tool_retries: int = 2
 
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",
