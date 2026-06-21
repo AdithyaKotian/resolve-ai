@@ -51,3 +51,10 @@ def check_database_connection() -> None:
 
     with engine.connect() as connection:
         connection.execute(text("SELECT 1"))
+
+def init_database() -> None:
+    """Create all database tables that do not already exist."""
+
+    from app import models  # noqa: F401
+
+    Base.metadata.create_all(bind=engine)

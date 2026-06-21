@@ -6,13 +6,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.health import router as health_router
 from app.config import settings
-from app.database import check_database_connection, engine
-
+from app.database import check_database_connection, engine, init_database
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     """Run startup and shutdown operations for the application."""
 
+    init_database()
     check_database_connection()
 
     yield
