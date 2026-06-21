@@ -131,3 +131,73 @@ export interface DemoScenario {
   message: string;
   resultLabel: string;
 }
+export interface AgentEvent {
+  event_id: number;
+  session_id: string;
+  timestamp: string;
+
+  event_type: string;
+  graph_node: string | null;
+  tool_name: string | null;
+
+  sanitized_input: Record<string, unknown> | null;
+  tool_output_summary:
+    | Record<string, unknown>
+    | null;
+
+  matched_policy_rule_codes: string[];
+
+  decision: PolicyDecision | null;
+  execution_status: string;
+
+  latency_ms: number | null;
+  retry_count: number;
+  error_message: string | null;
+}
+
+export interface StoredChatMessage {
+  message_id: number;
+  session_id: string;
+  role: string;
+  content: string;
+  created_at: string;
+}
+
+export interface SessionSummary {
+  session_id: string;
+
+  customer_id: string | null;
+  order_id: string | null;
+
+  status: SessionStatus;
+  final_decision: PolicyDecision | null;
+
+  created_at: string;
+  updated_at: string;
+
+  event_count: number;
+  tool_failures: number;
+}
+
+export interface SessionMetrics {
+  total_sessions: number;
+  approved_refunds: number;
+  denied_refunds: number;
+  escalated_requests: number;
+  tool_failures: number;
+}
+
+export interface SessionListResponse {
+  metrics: SessionMetrics;
+  sessions: SessionSummary[];
+}
+
+export interface SessionDetailResponse {
+  session: SessionSummary;
+  messages: StoredChatMessage[];
+  decision_result: DecisionResult | null;
+}
+
+export type WebSocketConnectionStatus =
+  | "connected"
+  | "disconnected";
