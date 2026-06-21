@@ -6,7 +6,10 @@ from typing import Annotated, Any, TypedDict
 
 from app.agent.tool_types import CustomerRecord, OrderRecord
 from app.models import PolicyDecision
-from app.policy.types import RefundPolicyResult, RefundReason
+from app.policy.types import (
+    RefundPolicyResult,
+    RefundReason,
+)
 
 
 class ExecutionTraceEvent(TypedDict, total=False):
@@ -17,6 +20,7 @@ class ExecutionTraceEvent(TypedDict, total=False):
     graph_node: str
     tool_name: str | None
     execution_status: str
+    latency_ms: int | None
     retry_count: int
     decision: str | None
     rule_codes: list[str]
@@ -37,6 +41,7 @@ class AgentState(TypedDict, total=False):
         list[dict[str, str]],
         add,
     ]
+
     execution_trace: Annotated[
         list[ExecutionTraceEvent],
         add,
@@ -81,6 +86,7 @@ def create_trace_event(
     graph_node: str,
     execution_status: str,
     retry_count: int = 0,
+    latency_ms: int | None = None,
     tool_name: str | None = None,
     decision: str | None = None,
     rule_codes: list[str] | None = None,
@@ -96,6 +102,7 @@ def create_trace_event(
         graph_node=graph_node,
         tool_name=tool_name,
         execution_status=execution_status,
+        latency_ms=latency_ms,
         retry_count=retry_count,
         decision=decision,
         rule_codes=rule_codes or [],

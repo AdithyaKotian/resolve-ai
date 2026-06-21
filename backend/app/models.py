@@ -299,6 +299,38 @@ class AgentSession(Base):
         onupdate=utc_now,
     )
 
+class ChatMessage(Base):
+    """One customer or assistant message within an agent session."""
+
+    __tablename__ = "chat_messages"
+
+    message_id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True,
+    )
+
+    session_id: Mapped[str] = mapped_column(
+        ForeignKey("agent_sessions.session_id"),
+        nullable=False,
+        index=True,
+    )
+
+    role: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+    )
+
+    content: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utc_now,
+    )
 
 class RefundRequest(Base):
     """A refund request and the authoritative policy result."""
