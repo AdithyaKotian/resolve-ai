@@ -218,3 +218,12 @@ class SessionDetailResponse(BaseModel):
     session: SessionSummary
     messages: list[ChatMessageResponse]
     decision_result: DecisionResult | None
+
+class DemoResetResponse(BaseModel):
+    """Result returned after restoring the demo environment."""
+
+    message: str
+    customers: int
+    orders: int
+    sessions: int
+    events: int

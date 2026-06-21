@@ -5,6 +5,7 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any
 
+from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal, init_database
@@ -15,6 +16,11 @@ from app.models import (
     OrderStatus,
     ProductCondition,
     RefundStatus,
+    AgentEvent,
+    AgentSession,
+    ChatMessage,
+    HumanReviewCase,
+    RefundRequest,
 )
 
 
@@ -636,10 +642,15 @@ def update_or_create(
         setattr(existing_record, field_name, field_value)
 
 
-def seed_database() -> None:
-    """Insert or update the deterministic demo CRM dataset."""
+def seed_demo_records(
+    database_session: Session,
+) -> tuple[int, int]:
+    """
+    Insert or update the deterministic demo customers and orders.
 
-    init_database()
+    The session is injected so this function can be reused by the
+    command-line seed process, tests, and the demo-reset API.
+    """
 
     customers = customer_records()
     orders = order_records()
@@ -648,6 +659,7 @@ def seed_database() -> None:
         order["customer_id"]
         for order in orders
     )
+
     previous_refund_counts = Counter(
         order["customer_id"]
         for order in orders
@@ -657,41 +669,99 @@ def seed_database() -> None:
         }
     )
 
-    with SessionLocal() as database_session:
-        for customer in customers:
-            customer["total_orders"] = order_counts[
+    for customer in customers:
+        customer["total_orders"] = order_counts[
+            customer["customer_id"]
+        ]
+        customer["previous_refunds"] = (
+            previous_refund_counts[
                 customer["customer_id"]
             ]
-            customer["previous_refunds"] = (
-                previous_refund_counts[
-                    customer["customer_id"]
-                ]
+        )
+
+        update_or_create(
+            database_session,
+            Customer,
+            customer["customer_id"],
+            customer,
+        )
+
+    database_session.flush()
+
+    for order in orders:
+        update_or_create(
+            database_session,
+            Order,
+            order["order_id"],
+            order,
+        )
+
+    database_session.commit()
+
+    return len(customers), len(orders)
+
+
+def reset_demo_data(
+    database_session: Session,
+) -> tuple[int, int]:
+    """
+    Delete operational activity and restore the original demo data.
+
+    The deletion order respects the foreign-key relationships between
+    review cases, events, messages, refund requests, sessions, orders,
+    and customers.
+    """
+
+    database_session.execute(
+        delete(HumanReviewCase)
+    )
+    database_session.execute(
+        delete(AgentEvent)
+    )
+    database_session.execute(
+        delete(ChatMessage)
+    )
+    database_session.execute(
+        delete(RefundRequest)
+    )
+    database_session.execute(
+        delete(AgentSession)
+    )
+    database_session.execute(
+        delete(Order)
+    )
+    database_session.execute(
+        delete(Customer)
+    )
+
+    database_session.flush()
+
+    return seed_demo_records(
+        database_session
+    )
+
+
+def seed_database() -> None:
+    """Create tables and seed the development database."""
+
+    init_database()
+
+    with SessionLocal() as database_session:
+        customer_count, order_count = (
+            seed_demo_records(
+                database_session
             )
+        )
 
-            update_or_create(
-                database_session,
-                Customer,
-                customer["customer_id"],
-                customer,
-            )
-
-        database_session.flush()
-
-        for order in orders:
-            update_or_create(
-                database_session,
-                Order,
-                order["order_id"],
-                order,
-            )
-
-        database_session.commit()
-
-       
-
-    print("ResolveAI demo database seeded successfully.")
-    print(f"Customers in seed dataset: {len(customers)}")
-    print(f"Orders in seed dataset: {len(orders)}")
+    print(
+        "ResolveAI demo database seeded successfully."
+    )
+    print(
+        f"Customers in seed dataset: {customer_count}"
+    )
+    print(
+        f"Orders in seed dataset: {order_count}"
+    )
 
 
 if __name__ == "__main__":

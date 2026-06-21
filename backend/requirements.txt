@@ -6,3 +6,4 @@ python-dotenv==1.2.2
 pytest>=8.0,<9.0
 langgraph==1.2.6
 openai==2.43.0
+httpx>=0.27,<1.0

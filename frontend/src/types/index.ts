@@ -201,3 +201,12 @@ export interface SessionDetailResponse {
 export type WebSocketConnectionStatus =
   | "connected"
   | "disconnected";
+
+
+export interface DemoResetResponse {
+  message: string;
+  customers: number;
+  orders: number;
+  sessions: number;
+  events: number;
+}

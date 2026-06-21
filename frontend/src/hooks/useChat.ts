@@ -4,12 +4,13 @@ import {
   useState,
 } from "react";
 
-import { ApiError } from "../api/client";
 import { sendChatMessage } from "../api/chat";
+import { ApiError } from "../api/client";
 import {
   getCustomerOrders,
   getCustomers,
 } from "../api/customers";
+import { resetDemoData } from "../api/demo";
 
 import type {
   ChatMessage,
@@ -33,6 +34,9 @@ interface UseChatResult {
   retryCount: number;
   sessionId: string | null;
 
+  simulateTransientFailure: boolean;
+  isResettingDemo: boolean;
+
   isLoadingCustomers: boolean;
   isLoadingOrders: boolean;
   isSending: boolean;
@@ -40,13 +44,26 @@ interface UseChatResult {
   error: string | null;
 
   setInput: (value: string) => void;
-  selectCustomer: (customerId: string) => void;
-  selectOrder: (orderId: string) => void;
+
+  setSimulateTransientFailure: (
+    value: boolean,
+  ) => void;
+
+  selectCustomer: (
+    customerId: string,
+  ) => void;
+
+  selectOrder: (
+    orderId: string,
+  ) => void;
+
   applyDemoScenario: (
     scenario: DemoScenario,
   ) => void;
+
   sendMessage: () => Promise<void>;
   clearConversation: () => void;
+  resetDemoEnvironment: () => Promise<void>;
 }
 
 function createMessage(
@@ -61,7 +78,9 @@ function createMessage(
   };
 }
 
-function getErrorMessage(error: unknown): string {
+function getErrorMessage(
+  error: unknown,
+): string {
   if (error instanceof ApiError) {
     return error.message;
   }
@@ -107,7 +126,18 @@ export function useChat(): UseChatResult {
     setDecisionResult,
   ] = useState<DecisionResult | null>(null);
 
-  const [retryCount, setRetryCount] = useState(0);
+  const [retryCount, setRetryCount] =
+    useState(0);
+
+  const [
+    simulateTransientFailure,
+    setSimulateTransientFailure,
+  ] = useState(false);
+
+  const [
+    isResettingDemo,
+    setIsResettingDemo,
+  ] = useState(false);
 
   const [
     isLoadingCustomers,
@@ -196,9 +226,10 @@ export function useChat(): UseChatResult {
 
     async function loadOrders(): Promise<void> {
       try {
-        const result = await getCustomerOrders(
-          selectedCustomerId,
-        );
+        const result =
+          await getCustomerOrders(
+            selectedCustomerId,
+          );
 
         if (!effectIsActive) {
           return;
@@ -222,6 +253,7 @@ export function useChat(): UseChatResult {
           );
 
           pendingDemoOrderId.current = null;
+
           return;
         }
 
@@ -266,13 +298,17 @@ export function useChat(): UseChatResult {
     setSelectedCustomerId(customerId);
     setOrders([]);
     setSelectedOrderId("");
-    setIsLoadingOrders(Boolean(customerId));
+    setIsLoadingOrders(
+      Boolean(customerId),
+    );
     setInput("");
 
     resetConversationState();
   }
 
-  function selectOrder(orderId: string): void {
+  function selectOrder(
+    orderId: string,
+  ): void {
     setSelectedOrderId(orderId);
     setInput("");
 
@@ -310,7 +346,8 @@ export function useChat(): UseChatResult {
     setInput(scenario.message);
   }
 
-  async function sendMessage(): Promise<void> {
+  async function sendMessage():
+    Promise<void> {
     const cleanedMessage = input.trim();
 
     if (!selectedCustomerId) {
@@ -321,7 +358,11 @@ export function useChat(): UseChatResult {
       return;
     }
 
-    if (!cleanedMessage || isSending) {
+    if (
+      !cleanedMessage ||
+      isSending ||
+      isResettingDemo
+    ) {
       return;
     }
 
@@ -340,22 +381,29 @@ export function useChat(): UseChatResult {
     setIsSending(true);
 
     try {
-      const response = await sendChatMessage({
-        session_id:
-          sessionId ?? undefined,
+      const response =
+        await sendChatMessage({
+          session_id:
+            sessionId ?? undefined,
 
-        customer_id:
-          selectedCustomerId,
+          customer_id:
+            selectedCustomerId,
 
-        order_id:
-          selectedOrderId || undefined,
+          order_id:
+            selectedOrderId || undefined,
 
-        message:
-          cleanedMessage,
-      });
+          message:
+            cleanedMessage,
+
+          simulate_transient_failure:
+            simulateTransientFailure,
+        });
 
       setSessionId(response.session_id);
-      setRetryCount(response.retry_count);
+
+      setRetryCount(
+        response.retry_count,
+      );
 
       setDecisionResult(
         response.decision_result,
@@ -383,6 +431,74 @@ export function useChat(): UseChatResult {
     setInput("");
   }
 
+  async function resetDemoEnvironment():
+    Promise<void> {
+    if (
+      isSending ||
+      isResettingDemo
+    ) {
+      return;
+    }
+
+    setIsResettingDemo(true);
+    setIsLoadingCustomers(true);
+    setIsLoadingOrders(true);
+    setError(null);
+
+    try {
+      await resetDemoData();
+
+      resetConversationState();
+
+      pendingDemoOrderId.current = null;
+
+      setInput("");
+      setSimulateTransientFailure(false);
+      setSelectedOrderId("");
+      setOrders([]);
+
+      const customerResults =
+        await getCustomers();
+
+      setCustomers(customerResults);
+
+      const preferredCustomer =
+        customerResults.find(
+          (customer) =>
+            customer.customer_id ===
+            "CUST-VALID-001",
+        ) ?? customerResults[0];
+
+      if (!preferredCustomer) {
+        setSelectedCustomerId("");
+        setOrders([]);
+        setSelectedOrderId("");
+
+        return;
+      }
+
+      setSelectedCustomerId(
+        preferredCustomer.customer_id,
+      );
+
+      const orderResults =
+        await getCustomerOrders(
+          preferredCustomer.customer_id,
+        );
+
+      setOrders(orderResults.orders);
+      setSelectedOrderId("");
+    } catch (resetError) {
+      setError(
+        getErrorMessage(resetError),
+      );
+    } finally {
+      setIsLoadingCustomers(false);
+      setIsLoadingOrders(false);
+      setIsResettingDemo(false);
+    }
+  }
+
   return {
     customers,
     orders,
@@ -397,6 +513,9 @@ export function useChat(): UseChatResult {
     retryCount,
     sessionId,
 
+    simulateTransientFailure,
+    isResettingDemo,
+
     isLoadingCustomers,
     isLoadingOrders,
     isSending,
@@ -404,10 +523,14 @@ export function useChat(): UseChatResult {
     error,
 
     setInput,
+    setSimulateTransientFailure,
+
     selectCustomer,
     selectOrder,
     applyDemoScenario,
+
     sendMessage,
     clearConversation,
+    resetDemoEnvironment,
   };
 }

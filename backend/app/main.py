@@ -1,4 +1,5 @@
 from collections.abc import AsyncIterator
+from app.api.routes.demo import router as demo_router
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -75,6 +76,11 @@ app.include_router(
 
 app.include_router(
     chat_router,
+    prefix=settings.api_prefix,
+)
+
+app.include_router(
+    demo_router,
     prefix=settings.api_prefix,
 )
 

@@ -1,11 +1,12 @@
 import type { FormEvent } from "react";
 
-import { PageShell } from "../components/shared/PageShell";
 import { LoadingSpinner } from "../components/shared/LoadingSpinner";
+import { PageShell } from "../components/shared/PageShell";
 
 import { ChatWindow } from "../components/support/ChatWindow";
 import { CustomerSelector } from "../components/support/CustomerSelector";
 import { DecisionCard } from "../components/support/DecisionCard";
+import { DemoControls } from "../components/support/DemoControls";
 import { OrderSelector } from "../components/support/OrderSelector";
 import { QuickPrompts } from "../components/support/QuickPrompts";
 
@@ -75,6 +76,9 @@ export function CustomerSupportPage() {
     retryCount,
     sessionId,
 
+    simulateTransientFailure,
+    isResettingDemo,
+
     isLoadingCustomers,
     isLoadingOrders,
     isSending,
@@ -82,11 +86,15 @@ export function CustomerSupportPage() {
     error,
 
     setInput,
+    setSimulateTransientFailure,
+
     selectCustomer,
     selectOrder,
     applyDemoScenario,
+
     sendMessage,
     clearConversation,
+    resetDemoEnvironment,
   } = useChat();
 
   const selectedCustomer =
@@ -104,6 +112,9 @@ export function CustomerSupportPage() {
 
   const conversationComplete =
     decisionResult !== null;
+
+  const interfaceDisabled =
+    isSending || isResettingDemo;
 
   function handleSubmit(
     event: FormEvent<HTMLFormElement>,
@@ -181,7 +192,7 @@ export function CustomerSupportPage() {
                   selectedCustomerId
                 }
                 isLoading={isLoadingCustomers}
-                disabled={isSending}
+                disabled={interfaceDisabled}
                 onChange={selectCustomer}
               />
 
@@ -232,7 +243,7 @@ export function CustomerSupportPage() {
                 customerSelected={Boolean(
                   selectedCustomerId,
                 )}
-                disabled={isSending}
+                disabled={interfaceDisabled}
                 onChange={selectOrder}
               />
 
@@ -252,7 +263,8 @@ export function CustomerSupportPage() {
                     </span>
 
                     <span className="font-black text-slate-900">
-                      ${Number(
+                      $
+                      {Number(
                         selectedOrder.total_amount,
                       ).toFixed(2)}
                     </span>
@@ -263,7 +275,7 @@ export function CustomerSupportPage() {
               <button
                 type="button"
                 disabled={
-                  isSending ||
+                  interfaceDisabled ||
                   messages.length === 0
                 }
                 onClick={clearConversation}
@@ -288,8 +300,22 @@ export function CustomerSupportPage() {
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <QuickPrompts
               scenarios={demoScenarios}
-              disabled={isSending}
+              disabled={interfaceDisabled}
               onSelect={applyDemoScenario}
+            />
+          </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <DemoControls
+              simulateTransientFailure={
+                simulateTransientFailure
+              }
+              isSending={isSending}
+              isResetting={isResettingDemo}
+              onSimulationChange={
+                setSimulateTransientFailure
+              }
+              onReset={resetDemoEnvironment}
             />
           </section>
         </aside>
@@ -360,13 +386,15 @@ export function CustomerSupportPage() {
                 rows={3}
                 maxLength={2000}
                 disabled={
-                  isSending ||
+                  interfaceDisabled ||
                   conversationComplete
                 }
                 placeholder={
-                  conversationComplete
-                    ? "Start a new conversation to test another request."
-                    : "Example: I changed my mind and want a refund for ORD-VALID-1001."
+                  isResettingDemo
+                    ? "The demo environment is being reset."
+                    : conversationComplete
+                      ? "Start a new conversation to test another request."
+                      : "Example: I changed my mind and want a refund for ORD-VALID-1001."
                 }
                 onChange={(event) =>
                   setInput(event.target.value)
@@ -380,7 +408,7 @@ export function CustomerSupportPage() {
 
                     if (
                       input.trim() &&
-                      !isSending &&
+                      !interfaceDisabled &&
                       !conversationComplete
                     ) {
                       void sendMessage();
@@ -412,7 +440,7 @@ export function CustomerSupportPage() {
                   disabled={
                     !selectedCustomerId ||
                     !input.trim() ||
-                    isSending ||
+                    interfaceDisabled ||
                     conversationComplete
                   }
                   className={[
@@ -434,6 +462,11 @@ export function CustomerSupportPage() {
                   {isSending ? (
                     <LoadingSpinner
                       label="Processing"
+                      size="small"
+                    />
+                  ) : isResettingDemo ? (
+                    <LoadingSpinner
+                      label="Resetting"
                       size="small"
                     />
                   ) : (
