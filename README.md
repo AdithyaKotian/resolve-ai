@@ -394,10 +394,6 @@ npm run build
 
 ## Screenshots
 
-### Customer Support
-
-![Customer support interface](docs/screenshots/customer-chat.png)
-
 ### Approved Refund
 
 ![Approved refund decision](docs/screenshots/approved-refund.png)
